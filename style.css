@@ -11,6 +11,7 @@
     --font-serif:  'EB Garamond', Georgia, serif;
     --font-sans:   'Inter', system-ui, sans-serif;
     --gutter:      clamp(16px, 4vw, 44px);
+    --panel-min:   clamp(160px, 34vh, 260px);
   }
 
   html { font-size: clamp(16px, 0.9vw + 13px, 20px); }
@@ -109,6 +110,7 @@
   /* ── Card ── */
   .card {
     width: 100%; max-width: 860px;
+    display: flex; flex-direction: column;
     background: var(--surface);
     border: 1px solid var(--border);
     border-radius: 6px;
@@ -174,8 +176,10 @@
   .panels {
     display: grid;
     grid-template-columns: 1fr 1px 1fr;
+    flex: 1;
+    min-height: 0;
   }
-  .panel { display: flex; flex-direction: column; }
+  .panel { display: flex; flex-direction: column; min-height: 0; }
   .panel-sep { background: var(--border); }
 
   textarea {
@@ -186,7 +190,7 @@
     font-size: 17px; font-weight: 300;
     line-height: 1.78;
     padding: clamp(14px, 3.5vw, 20px) clamp(14px, 4vw, 22px) 10px;
-    min-height: clamp(160px, 34vh, 260px);
+    min-height: var(--panel-min);
     caret-color: #333;
   }
   textarea::placeholder { color: #d0d0cc; }
@@ -197,7 +201,7 @@
     font-family: var(--font-sans);
     font-size: 17px; font-weight: 300;
     line-height: 1.78;
-    min-height: clamp(160px, 34vh, 260px);
+    min-height: var(--panel-min);
     white-space: pre-wrap; word-break: break-word;
     color: var(--text);
   }
@@ -314,12 +318,37 @@
       padding-right: calc(var(--gutter) + env(safe-area-inset-right));
     }
     .nav-links { display: none; }
-    .panels { grid-template-columns: 1fr; }
+    .panels {
+      grid-template-columns: 1fr;
+      grid-template-rows: 1fr 1px 1fr;
+    }
     .panel-sep { height: 1px; }
+
+    .page {
+      min-height: 100vh;
+      min-height: 100svh;
+      height: 100svh;
+      padding: calc(78px + env(safe-area-inset-top)) var(--gutter) 14px;
+      justify-content: flex-start;
+    }
+
+    header { margin-bottom: 20px; }
+    h1 { font-size: clamp(2.1rem, 7vw, 2.8rem); }
+
+    .card { flex: 1; min-height: 0; }
+    :root { --panel-min: 0px; }
+
+    footer { margin-top: 14px; }
   }
 
   @media (max-width: 420px) {
     .action-bar { padding: 12px 16px; }
     .panel-foot { padding: 10px 14px; }
     .btn-translate { width: 100%; justify-content: center; }
+  }
+
+  @media (max-height: 700px) and (max-width: 580px) {
+    header { margin-bottom: 14px; }
+    h1 { font-size: clamp(1.9rem, 7.4vw, 2.5rem); }
+    footer { display: none; }
   }

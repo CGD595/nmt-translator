@@ -6,7 +6,7 @@ const API_BASE = (import.meta.env.VITE_API_BASE || DEFAULT_API_BASE).replace(
   "",
 );
 
-const LOGO_SRC = "/logo.png";
+const LOGO_SRC = import.meta.env.BASE_URL + "logo.png";
 
 export default function App() {
   const inputRef = useRef(null);
@@ -156,7 +156,7 @@ export default function App() {
               />
               <div className="panel-foot">
                 <span className={`char-count ${warnCount ? "warn" : ""}`}>
-                  {charCount} / 2000
+                  {charCount} / 100
                 </span>
                 <button
                   className="btn-ghost"
