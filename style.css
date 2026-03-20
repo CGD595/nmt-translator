@@ -171,6 +171,15 @@
     border-top: 4.5px solid var(--text-mid);
     pointer-events: none;
   }
+  /*  Typing animation for select options */
+  .cursor {
+  display: inline-block;
+  animation: blink 0.5s step-end infinite;
+  color: var(--text-light);
+  font-size: 14px;
+  margin-left: 1px;
+  font-weight: 300;
+}
 
   /* ── Panels ── */
   .panels {
@@ -293,6 +302,26 @@
   }
   footer a { color: var(--text-light); text-decoration: none; }
   footer a:hover { color: var(--text-mid); }
+
+  /* Typewriter cursor while translating */
+.output-area.translating {
+  color: var(--text-light);
+}
+
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0; }
+}
+
+/* Typewriter reveal when text arrives */
+@keyframes reveal {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.output-area.text-ready {
+  animation: reveal 0.3s ease forwards;
+}
 
   @keyframes rise {
     from { opacity: 0; transform: translateY(8px); }

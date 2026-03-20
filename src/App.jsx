@@ -14,9 +14,10 @@ export default function App() {
   const [target, setTarget] = useState("dzonglish");
   const [inputText, setInputText] = useState("");
   const [outputText, setOutputText] = useState("");
-  const [outputMode, setOutputMode] = useState("placeholder"); // placeholder | translating | text
+  const [displayText, setDisplayText] = useState("");
+  const [outputMode, setOutputMode] = useState("placeholder");
   const [error, setError] = useState("");
-  const [status, setStatus] = useState({ text: "Ready", kind: "" }); // kind: "" | ok | err
+  const [status, setStatus] = useState({ text: "Ready", kind: "" });
   const [timeInfo, setTimeInfo] = useState("");
   const [isTranslating, setIsTranslating] = useState(false);
   const [copyState, setCopyState] = useState({ label: "Copy", done: false });
@@ -31,6 +32,7 @@ export default function App() {
   const clearInput = () => {
     setInputText("");
     setOutputText("");
+    setDisplayText("");
     setOutputMode("placeholder");
     setError("");
     setStatus({ text: "Ready", kind: "" });
@@ -61,6 +63,8 @@ export default function App() {
     setError("");
     setStatus({ text: "Working…", kind: "" });
     setTimeInfo("");
+    setOutputText("");
+    setDisplayText("");
     setOutputMode("translating");
     setCopyState({ label: "Copy", done: false });
 
@@ -80,12 +84,21 @@ export default function App() {
       const data = await res.json();
       if (!data.translation) throw new Error("Empty response from API");
 
-      setOutputText(data.translation);
+      const full = data.translation;
+      setOutputText(full);
       setOutputMode("text");
       setTimeInfo(`${((performance.now() - t0) / 1000).toFixed(2)}s`);
       setStatus({ text: "Done", kind: "ok" });
+
+      // Typewriter — character by character
+      setDisplayText("");
+      for (let i = 0; i <= full.length; i++) {
+        await new Promise((r) => setTimeout(r, 30));
+        setDisplayText(full.slice(0, i));
+      }
     } catch (err) {
       setOutputText("");
+      setDisplayText("");
       setOutputMode("placeholder");
       setError(
         `⚠ ${err?.message || "Translation failed. Check your API endpoint."}`,
@@ -110,7 +123,7 @@ export default function App() {
           <h1>
             Translate English into
             <br />
-            <em>Dzonglish &amp; Sharlish.</em>
+            <em>Dzonglish &amp; Sharchop.</em>
           </h1>
         </header>
 
@@ -130,7 +143,7 @@ export default function App() {
                   aria-label="Target language"
                 >
                   <option value="dzonglish">Dzonglish</option>
-                  <option value="sharlish">Sharlish</option>
+                  <option value="sharchop">Sharchop</option>
                 </select>
               </div>
             </div>
@@ -150,7 +163,7 @@ export default function App() {
                     translate();
                 }}
                 placeholder="Enter English text…"
-                maxLength={2000}
+                maxLength={100}
                 spellCheck={true}
                 aria-label="Source text"
               />
@@ -185,7 +198,12 @@ export default function App() {
                 ) : outputMode === "placeholder" ? (
                   "Translation will appear here…"
                 ) : (
-                  outputText
+                  <>
+                    {displayText}
+                    {displayText.length < outputText.length && (
+                      <span className="cursor">|</span>
+                    )}
+                  </>
                 )}
               </div>
               <div className="panel-foot">
