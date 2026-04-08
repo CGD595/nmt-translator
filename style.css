@@ -195,7 +195,7 @@ textarea {
   background: transparent;
   color: var(--text);
   font-family: var(--font-sans);
-  font-size: 17px; font-weight: 300;
+  font-size: 17px; font-weight: 700;
   line-height: 1.78;
   padding: clamp(14px, 3.5vw, 20px) clamp(14px, 4vw, 22px) 10px;
   min-height: var(--panel-min);
@@ -207,7 +207,7 @@ textarea::placeholder { color: #d0d0cc; }
   flex: 1;
   padding: clamp(14px, 3.5vw, 20px) clamp(14px, 4vw, 22px) 10px;
   font-family: var(--font-sans);
-  font-size: 17px; font-weight: 300;
+  font-size: 17px; font-weight: 700;
   line-height: 1.78;
   min-height: var(--panel-min);
   white-space: pre-wrap; word-break: break-word;
