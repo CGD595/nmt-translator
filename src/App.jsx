@@ -14,16 +14,17 @@ const DEFAULT_API_BASE = "https://chimegd-nmt-api.hf.space";
 const API_BASE = getEnv("VITE_API_BASE", DEFAULT_API_BASE).replace(/\/+$/, "");
 
 const TTS_MODELS = {
-  dzonglish: {
-    endpoint: "", // add HF endpoint when ready
-    available: false,
-    label: "Dzongkha TTS",
-  },
   sharchop: {
-    endpoint: "", // add HF endpoint when ready
-    available: false,
+    endpoint: "https://chimegd-tts-api.hf.space/synthesize/sharchop",
+    available: true,
     label: "Tshangla TTS",
   },
+  // later
+  // dzonglish: {
+  //   endpoint: "https://chimegd-tts-api.hf.space/synthesize/dzongkha",
+  //   available: true,
+  //   label: "Dzongkha TTS",
+  // },
 };
 
 const LOGO_SRC = getEnv("BASE_URL", "/") + "logo.png";
@@ -31,8 +32,9 @@ const LOGO_SRC = getEnv("BASE_URL", "/") + "logo.png";
 export default function App() {
   const inputRef = useRef(null);
   const audioRef = useRef(null);
+  const audioCacheRef = useRef(new Map()); // key -> blob url
 
-  const [target, setTarget] = useState("dzonglish");
+  const [target, setTarget] = useState("sharchop");
   const [inputText, setInputText] = useState("");
   const [outputText, setOutputText] = useState("");
   const [displayText, setDisplayText] = useState("");
@@ -46,20 +48,30 @@ export default function App() {
 
   const charCount = inputText.length;
   const warnCount = charCount > 1800;
+  const hasTTS = !!TTS_MODELS[target]?.endpoint;
+
   const canTranslate = useMemo(
     () => inputText.trim().length > 0 && !isTranslating,
     [inputText, isTranslating]
   );
 
+  const hasOutput = outputMode === "text" && !!outputText;
+  const isPlaying = voiceState === "playing";
+  const isVoiceLoading = voiceState === "loading";
+  const isVoiceDisabled = !hasOutput || !hasTTS || isVoiceLoading;
+
   const stopAudio = () => {
     if (audioRef.current) {
       audioRef.current.pause();
       audioRef.current.currentTime = 0;
+      audioRef.current = null;
     }
   };
 
+  const getAudioCacheKey = (lang, text) => `${lang}::${text.trim()}`;
+
   const handleVoice = async () => {
-    if (!outputText) return;
+    if (!outputText || !hasTTS) return;
 
     if (voiceState === "playing") {
       stopAudio();
@@ -70,32 +82,67 @@ export default function App() {
     const model = TTS_MODELS[target];
     if (!model?.endpoint) return;
 
+    const trimmedText = outputText.trim();
+    const cacheKey = getAudioCacheKey(target, trimmedText);
+
     setVoiceState("loading");
+    setError("");
+
     try {
-      const res = await fetch(model.endpoint, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text: outputText }),
-      });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      const audio = new Audio(url);
+      let audioUrl = audioCacheRef.current.get(cacheKey);
+
+      if (!audioUrl) {
+        const res = await fetch(model.endpoint, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ text: trimmedText }),
+        });
+
+        if (!res.ok) {
+          const e = await res.json().catch(() => ({}));
+          throw new Error(e.detail || `HTTP ${res.status}`);
+        }
+
+        const blob = await res.blob();
+        audioUrl = URL.createObjectURL(blob);
+        audioCacheRef.current.set(cacheKey, audioUrl);
+      }
+
+      const audio = new Audio(audioUrl);
       audioRef.current = audio;
+
       audio.onended = () => setVoiceState("idle");
-      audio.onerror = () => setVoiceState("idle");
+      audio.onerror = () => {
+        setVoiceState("idle");
+        setError("⚠ Voice playback failed.");
+      };
+
       await audio.play();
       setVoiceState("playing");
     } catch (err) {
       setVoiceState("idle");
+      setError(`⚠ Voice synthesis failed: ${err?.message || "Unknown error"}`);
     }
   };
 
-  // stop audio when target language changes or output clears
   useEffect(() => {
     stopAudio();
     setVoiceState("idle");
   }, [target, outputText]);
+
+  useEffect(() => {
+    return () => {
+      stopAudio();
+      for (const url of audioCacheRef.current.values()) {
+        try {
+          URL.revokeObjectURL(url);
+        } catch {
+          // ignore cleanup failure
+        }
+      }
+      audioCacheRef.current.clear();
+    };
+  }, []);
 
   const clearInput = () => {
     setInputText("");
@@ -106,6 +153,8 @@ export default function App() {
     setStatus({ text: "Ready", kind: "" });
     setTimeInfo("");
     setCopyState({ label: "Copy", done: false });
+    stopAudio();
+    setVoiceState("idle");
     requestAnimationFrame(() => inputRef.current?.focus());
   };
 
@@ -116,7 +165,7 @@ export default function App() {
       setCopyState({ label: "Copied", done: true });
       window.setTimeout(() => setCopyState({ label: "Copy", done: false }), 1800);
     } catch {
-      /* clipboard may be restricted */
+      setError("⚠ Could not copy text.");
     }
   };
 
@@ -136,16 +185,19 @@ export default function App() {
     setVoiceState("idle");
 
     const t0 = performance.now();
+
     try {
       const res = await fetch(`${API_BASE}/translate`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ text, target }),
       });
+
       if (!res.ok) {
         const e = await res.json().catch(() => ({}));
         throw new Error(e.detail || `HTTP ${res.status}`);
       }
+
       const data = await res.json();
       if (!data.translation) throw new Error("Empty response from API");
 
@@ -171,15 +223,17 @@ export default function App() {
     }
   };
 
-  const hasOutput = outputMode === "text" && !!outputText;
-  const isPlaying = voiceState === "playing";
-  const isVoiceLoading = voiceState === "loading";
-
   return (
     <>
       <nav>
         <a className="nav-logo" href="#">
-          <img src={LOGO_SRC} alt="Aplos Labs logo" onError={(e) => { e.target.style.display = 'none'; }} />
+          <img
+            src={LOGO_SRC}
+            alt="Aplos Labs logo"
+            onError={(e) => {
+              e.target.style.display = "none";
+            }}
+          />
           <span className="nav-logo-text">Aplos Labs</span>
         </a>
       </nav>
@@ -199,7 +253,9 @@ export default function App() {
               <span className="lang-label">From</span>
               <span className="lang-name">English</span>
             </div>
+
             <div className="lang-div"></div>
+
             <div className="lang-cell right">
               <span className="lang-label">To</span>
               <div className="select-wrap">
@@ -216,7 +272,6 @@ export default function App() {
           </div>
 
           <div className="panels">
-            {/* Source panel */}
             <div className="panel">
               <textarea
                 ref={inputRef}
@@ -245,7 +300,6 @@ export default function App() {
 
             <div className="panel-sep"></div>
 
-            {/* Output panel */}
             <div className="panel">
               <div
                 className={[
@@ -273,31 +327,39 @@ export default function App() {
               <div className="panel-foot">
                 <span className="time-info">{timeInfo}</span>
 
-                {/* Wrapper grouping buttons pushes them to the right edge */}
                 <div className="action-group">
                   <button
                     className={[
                       "btn-voice",
-                      hasOutput ? "active" : "",
+                      hasOutput && hasTTS ? "active" : "",
                       isPlaying ? "playing" : "",
                       isVoiceLoading ? "loading" : "",
+                      isVoiceDisabled ? "disabled" : "",
                     ]
                       .filter(Boolean)
                       .join(" ")}
                     type="button"
                     onClick={handleVoice}
-                    disabled={!hasOutput || isVoiceLoading}
+                    disabled={isVoiceDisabled}
                     aria-label={isPlaying ? "Stop audio" : "Listen to translation"}
                     title={
                       !hasOutput
                         ? "Translate something first"
+                        : !hasTTS
+                        ? "Voice not available for Dzonglish yet"
                         : isPlaying
                         ? "Stop"
                         : "Listen"
                     }
                   >
                     {isVoiceLoading ? (
-                      <svg className="spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <svg
+                        className="spin"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                      >
                         <circle cx="12" cy="12" r="9" strokeOpacity="0.2" />
                         <path d="M12 3a9 9 0 0 1 9 9" />
                       </svg>
@@ -307,7 +369,14 @@ export default function App() {
                         <rect x="14" y="4" width="4" height="16" rx="1.5" />
                       </svg>
                     ) : (
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <svg
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
                         <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
                         <path d="M15.54 8.46a5 5 0 0 1 0 7.07" />
                         <path d="M19.07 4.93a10 10 0 0 1 0 14.14" />

@@ -421,3 +421,14 @@ footer a:hover { color: var(--text-mid); }
 .btn-voice.soon {
   color: var(--text-muted, #9ca3af);
 }
+.btn-voice:disabled,
+.btn-voice.disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.btn-voice:disabled:hover,
+.btn-voice.disabled:hover {
+  cursor: not-allowed;
+  background: transparent;
+}
